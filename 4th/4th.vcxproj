@@ -11,8 +11,8 @@
     </ProjectConfiguration>
   </ItemGroup>
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{6095E07B-E852-4636-B010-14607186C3FD}</ProjectGuid>
-    <RootNamespace>_1st</RootNamespace>
+    <ProjectGuid>{71D24890-246F-4B83-BF2E-A78CE8C59F7F}</ProjectGuid>
+    <RootNamespace>_4th</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
@@ -77,7 +77,7 @@
     </CudaCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <CudaCompile Include="1st.cu" />
+    <CudaCompile Include="4th.cu" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
