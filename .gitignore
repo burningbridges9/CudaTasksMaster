@@ -1,0 +1,9 @@
+*.suo
+*VC.db
+*.opendb
+.vs
+*.user
+bin/
+obj/
+debug
+packages
