@@ -827,13 +827,13 @@ void SecondHomeTask()
 	int Arows = 3;
 	int Brows = 3;
 	int Bcols = 3;
-	Arows = toMultiple(Arows, BLOCK_SIZE);
+	Arows = toMultiple(Arows, BLOCKS);
 	printf("Arows = %d\n", Arows);
-	Acols = toMultiple(Acols, BLOCK_SIZE);
+	Acols = toMultiple(Acols, BLOCKS);
 	printf("Acols = %d\n", Acols);
-	Brows = toMultiple(Brows, BLOCK_SIZE);
+	Brows = toMultiple(Brows, BLOCKS);
 	printf("Brows = %d\n", Brows);
-	Bcols = toMultiple(Bcols, BLOCK_SIZE);
+	Bcols = toMultiple(Bcols, BLOCKS);
 	printf("Bcols = %d\n", Bcols);
 	size_t Asize = Arows * Acols * sizeof(BASE_TYPE);
 	size_t Bsize = Brows * Bcols * sizeof(BASE_TYPE);
