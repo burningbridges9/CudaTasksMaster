@@ -99,17 +99,17 @@ void CublasExample()
 	}*/
 
 #pragma endregion
-	
+
 	for (int j = 0; j < N; j++)
 		printf("B[%d] = %f  ", j, b[j]);
 	// выдел€ем пам€ть на GPU соответствующего размера
 	// дл€ каждой переменной
-	cudaStat =cudaMalloc((void**)&dev_b, N * sizeof(*x));
+	cudaStat = cudaMalloc((void**)&dev_b, N * sizeof(*x));
 	if (cudaStat != cudaSuccess) {
 		printf("device memory allocation failed");
 		//return EXIT_FAILURE;
 	}
-	cudaStat =cudaMalloc((void**)&dev_A, N * N * sizeof(float));
+	cudaStat = cudaMalloc((void**)&dev_A, N * N * sizeof(float));
 	if (cudaStat != cudaSuccess) {
 		printf("device memory allocation failed");
 		//return EXIT_FAILURE;
@@ -122,7 +122,7 @@ void CublasExample()
 		//return EXIT_FAILURE;
 	}
 	// копируем вектор и матрицу из CPU в GPU
-	stat =  cublasSetVector(N, sizeof(*b), b, 1, dev_b, 1);
+	stat = cublasSetVector(N, sizeof(*b), b, 1, dev_b, 1);
 	if (stat != CUBLAS_STATUS_SUCCESS) {
 		printf("CUBLAS set vector failed\n");
 		//return EXIT_FAILURE;
@@ -148,7 +148,7 @@ void CublasExample()
 	// решаем нижнюю треугольню матрицу
 	stat = cublasStrsv(handle, CUBLAS_FILL_MODE_LOWER,
 		CUBLAS_OP_N, CUBLAS_DIAG_NON_UNIT, N, dev_A, N,
-		dev_b, 1); 
+		dev_b, 1);
 	if (stat != CUBLAS_STATUS_SUCCESS) {
 		printf("CUBLAS solve failed\n");
 		//return EXIT_FAILURE;
@@ -194,34 +194,53 @@ void MultiCublas(int N)
 		printf("host memory allocation failed");
 		//return EXIT_FAILURE;
 	}
-	// инициализаци€ матрицы и вектора правой части
-	int ind = 11;
+	// инициализаци€ матрицы и вектора правой части	
 	for (int i = 0; i < N; i++)
 	{
 		for (int j = 0; j < N; j++)
 		{
-			A[IDX2C(i, j, N)] = (float)ind++;
-			B[IDX2C(i, j, N)] = (float)ind++;
+			A[IDX2C(i, j, N)] = i + j;
+			B[IDX2C(i, j, N)] = i + j;
 		}
 	}
-	//printf("A gen:\n");
-	//for (int i = 0; i < N; i++)
-	//{
-	//	for (int j = 0; j < N; j++)
-	//		printf("%0.0f ", A[IDX2C(i, j, N)]);
-	//	printf("\n");
-	//}
-	//printf("B gen:\n");
-	//for (int i = 0; i < N; i++)
-	//{
-	//	for (int j = 0; j < N; j++)
-	//		printf("%0.0f ", B[IDX2C(i, j, N)]);
-	//	printf("\n");
-	//}
+	printf("A gen:\n");
+	for (int i = 0; i < N; i++)
+	{
+		for (int j = 0; j < N; j++)
+			printf("%0.0f ", A[IDX2C(i, j, N)]);
+		printf("\n");
+	}
+	printf("B gen:\n");
+	for (int i = 0; i < N; i++)
+	{
+		for (int j = 0; j < N; j++)
+			printf("%0.0f ", B[IDX2C(i, j, N)]);
+		printf("\n");
+	}
 
 	// выдел€ем пам€ть на GPU соответствующего размера
 	// дл€ каждой переменной
-	cudaStat = cudaMalloc((void**)&dev_B, N * N*sizeof(float));
+
+
+	// инициализируем событи€
+	cudaEvent_t start, stop;
+	float elapsedTime;
+
+	// инициализируем контекст cuBLAS
+	stat = cublasCreate(&handle);
+	if (stat != CUBLAS_STATUS_SUCCESS) {
+		printf("CUBLAS initialization failed\n");
+		//return EXIT_FAILURE;
+	}
+	// создаем событи€
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+	// A*B = A
+	float alpha = 1;
+	float beta = 0;
+	// запись событи€
+	cudaEventRecord(start, 0);
+	cudaStat = cudaMalloc((void**)&dev_B, N * N * sizeof(float));
 	if (cudaStat != cudaSuccess) {
 		printf("device memory allocation failed");
 		//return EXIT_FAILURE;
@@ -232,12 +251,6 @@ void MultiCublas(int N)
 		//return EXIT_FAILURE;
 	}
 
-	// инициализируем контекст cuBLAS
-	stat = cublasCreate(&handle);
-	if (stat != CUBLAS_STATUS_SUCCESS) {
-		printf("CUBLAS initialization failed\n");
-		//return EXIT_FAILURE;
-	}
 	// копируем вектор и матрицу из CPU в GPU
 	stat = cublasSetMatrix(N, N, sizeof(*B), B, N, dev_B, N);
 	if (stat != CUBLAS_STATUS_SUCCESS) {
@@ -250,19 +263,6 @@ void MultiCublas(int N)
 		printf("CUBLAS set matrix failed\n");
 		//return EXIT_FAILURE;
 	}
-
-	// инициализируем событи€
-	cudaEvent_t start, stop;
-	float elapsedTime;
-	// создаем событи€
-	cudaEventCreate(&start);
-	cudaEventCreate(&stop);
-	// A*B = A
-	float alpha = 1;
-	float beta = 0;
-	// запись событи€
-	cudaEventRecord(start, 0);
-	
 	cublasSgemm(handle,
 		CUBLAS_OP_N, CUBLAS_OP_N,
 		N, N, N,
@@ -271,10 +271,26 @@ void MultiCublas(int N)
 		dev_B, N,
 		&beta,
 		dev_A, N);
+
+	// копируем результат из GPU в CPU
+
+	stat = cublasGetMatrix(N, N, sizeof(*A),
+		dev_A, N, A, N);
+	if (stat != CUBLAS_STATUS_SUCCESS) {
+		printf("CUBLAS get vector failed\n");
+		//return EXIT_FAILURE;
+	}
 	cudaEventRecord(stop, 0);
 	// ожидание завершени€ работы €дра
 	cudaEventSynchronize(stop);
-	cudaEventElapsedTime(&elapsedTime, start, stop);
+	cudaEventElapsedTime(&elapsedTime, start, stop); 
+	printf("Res:\n");
+	for (int i = 0; i < N; i++)
+	{
+		for (int j = 0; j < N; j++)
+			printf("%0.0f ", A[IDX2C(i, j, N)]);
+		printf("\n");
+	}
 	// вывод информации
 	printf("-----------------------------\n");
 	printf("CUBLAS; Time spent executing by the GPU: %.2f millseconds\n", elapsedTime);
@@ -282,21 +298,8 @@ void MultiCublas(int N)
 		printf("CUBLAS solve failed\n");
 		//return EXIT_FAILURE;
 	}
-	// копируем результат из GPU в CPU
+
 	
-	stat = cublasGetMatrix(N, N, sizeof(*A),
-		dev_A, N, A, N);
-	if (stat != CUBLAS_STATUS_SUCCESS) {
-		printf("CUBLAS get vector failed\n");
-		//return EXIT_FAILURE;
-	}
-	//printf("Res:\n");
-	//for (int i = 0; i < N; i++)
-	//{
-	//	for (int j = 0; j < N; j++)
-	//		printf("%0.0f ", A[IDX2C(i, j, N)]);
-	//	printf("\n");
-	//}
 	// освобождаем пам€ть в GPU
 	cudaFree(dev_B);
 	cudaFree(dev_A);
@@ -360,16 +363,15 @@ void MultiCublasXt(int N)
 		//return EXIT_FAILURE;
 	}
 	// инициализаци€ матрицы и вектора правой части
-	int ind = 11;
 	for (int i = 0; i < N; i++)
 	{
 		for (int j = 0; j < N; j++)
 		{
-			A[IDX2C(i, j, N)] = (float)ind++;
-			B[IDX2C(i, j, N)] = (float)ind++;
+			A[IDX2C(i, j, N)] = i + j;
+			B[IDX2C(i, j, N)] = i + j;
 		}
 	}
-	/*printf("A gen:\n");
+	printf("A gen:\n");
 	for (int i = 0; i < N; i++)
 	{
 		for (int j = 0; j < N; j++)
@@ -382,7 +384,7 @@ void MultiCublasXt(int N)
 		for (int j = 0; j < N; j++)
 			printf("%0.0f ", B[IDX2C(i, j, N)]);
 		printf("\n");
-	}*/
+	}
 #pragma endregion	
 	// инициализируем событи€
 	cudaEvent_t start, stop;
@@ -413,6 +415,13 @@ void MultiCublasXt(int N)
 	cudaEventSynchronize(stop);
 	cudaEventElapsedTime(&elapsedTime, start, stop);
 	// вывод информации
+	printf("Res:\n");
+	for (int i = 0; i < N; i++)
+	{
+		for (int j = 0; j < N; j++)
+			printf("%0.0f ", C[IDX2C(i, j, N)]);
+		printf("\n");
+	}
 	printf("-----------------------------\n");
 	printf("CUBLASXT; Time spent executing by the GPU: %.2f millseconds\n", elapsedTime);
 	printf("-----------------------------\n");
@@ -420,13 +429,7 @@ void MultiCublasXt(int N)
 		printf("CUBLAS solve failed\n");
 		//return EXIT_FAILURE;
 	}
-	//printf("Res:\n");
-	//for (int i = 0; i < N; i++)
-	//{
-	//	for (int j = 0; j < N; j++)
-	//		printf("%0.0f ", C[IDX2C(i, j, N)]);
-	//	printf("\n");
-	//}
+	
 	cublasXtDestroy(handle);
 	free(B);
 	free(A);
@@ -436,12 +439,12 @@ void MultiCublasXt(int N)
 }
 
 
-__global__ void matrixMultiplicationKernel(float* A, float* B, float* C, int N) 
+__global__ void matrixMultiplicationKernel(float* A, float* B, float* C, int N)
 {
 	int ROW = blockIdx.y*blockDim.y + threadIdx.y;
 	int COL = blockIdx.x*blockDim.x + threadIdx.x;
 	float tmpSum = 0;
-	
+
 	if (ROW < N && COL < N) {
 		// each thread computes one element of the block sub-matrix
 		for (int i = 0; i < N; i++) {
@@ -452,6 +455,50 @@ __global__ void matrixMultiplicationKernel(float* A, float* B, float* C, int N)
 	}
 }
 
+#define threads_num 10
+
+__global__ void matrixMult(const float *A, const
+	float *B, float *C, int Acols, int Bcols)
+{
+	// индекс начала первой подматрицы ј, которую
+	// обрабатывает блок
+	int aBegin = Acols * blockDim.y * blockIdx.y;
+	// индекс конца подматрицы ј, которую обрабатывает блок
+	int aEnd = aBegin + Acols - 1;
+	// шаг дл€ перебора подматриц ј
+	int aStep = blockDim.x;
+	// индекс начала первой подматрицы ¬, которую
+	// обрабатывает блок
+	int bBegin = blockDim.x * blockIdx.x;
+	// шаг дл€ перебора подматриц ¬
+	int bStep = blockDim.y * Bcols;
+	int thr_num = threads_num;
+	// ¬ыделение раздел€емой пам€ти дл€ подматриц
+	__shared__ float as[threads_num][threads_num];
+	__shared__ float bs[threads_num][threads_num];
+	// переменна€ дл€ вычислени€ элемента подматрицы
+	float sum = 0.0;
+	for (int ia = aBegin, ib = bBegin; ia < aEnd; ia += aStep, ib += bStep)
+	{
+		// загрузка подматриц ј и ¬ из глобальной пам€ти в
+		// раздел€емую
+		as[threadIdx.y][threadIdx.x] = A[ia + Acols * threadIdx.y + threadIdx.x];
+		bs[threadIdx.y][threadIdx.x] = B[ib + Bcols * threadIdx.y + threadIdx.x];
+		// синхронизаци€ нитей
+		__syncthreads();
+		// перемножение двух матриц
+		for (int k = 0; k < blockDim.x; k++)
+			sum += as[threadIdx.y][k] * bs[k][threadIdx.x];
+		// синхронизаци€ нитей
+		__syncthreads();
+	}
+	// индекс результирующего элемента в глобальной пам€ти
+	int ind = Bcols * (blockDim.y * blockIdx.y + threadIdx.y) + blockDim.x * blockIdx.x + threadIdx.x;
+	// запись элемента в глобальную пам€ть
+	C[ind] = sum;
+}
+
+
 void MultiSimple(int N)
 {
 	cudaEvent_t start, stop;
@@ -460,35 +507,37 @@ void MultiSimple(int N)
 	cudaEventCreate(&start);
 	cudaEventCreate(&stop);
 
-	int threads_num = 10;
 	int blocks_num = N / threads_num;
 	dim3 threadsPerBlock = dim3(threads_num, threads_num);
-	dim3 blocksPerGrid = dim3(N/blocks_num, N/blocks_num);
+	dim3 blocksPerGrid = dim3(N / blocks_num, N / blocks_num);
 
 	float *h_A = (float *)malloc(N*N * sizeof(float));
 	float *h_B = (float *)malloc(N*N * sizeof(float));
 	float *h_C = (float *)malloc(N*N * sizeof(float));
-	int ind = 11;
 	for (int i = 0; i < N; i++)
 	{
 		for (int j = 0; j < N; j++)
 		{
-			h_A[IDX2C(i, j, N)] = (float)ind++;
-			h_B[IDX2C(i, j, N)] = (float)ind++;
-			h_C[IDX2C(i, j, N)] = 0;
+			h_A[IDX2C(i, j, N)] = i + j;
+			h_B[IDX2C(i, j, N)] = i + j;
 		}
 	}
-	/*printf("A matrix:\n");
-	for (int i = 0; i != N; i++)
+	printf("A gen:\n");
+	for (int i = 0; i < N; i++)
 	{
-		for (int j = 0; j != N; j++)
-		{
-			printf("%.1f ", h_A[i*N + j]);
-			printf("%.1f ", h_B[i*N + j]);
-		}
+		for (int j = 0; j < N; j++)
+			printf("%0.0f ", h_A[IDX2C(i, j, N)]);
 		printf("\n");
-	}*/
+	}
+	printf("B gen:\n");
+	for (int i = 0; i < N; i++)
+	{
+		for (int j = 0; j < N; j++)
+			printf("%0.0f ", h_B[IDX2C(i, j, N)]);
+		printf("\n");
+	}
 
+	cudaEventRecord(start, 0);
 	float *d_A = NULL;
 	cudaMalloc((void **)&d_A, N*N * sizeof(float));
 	float * d_B = NULL;
@@ -500,23 +549,102 @@ void MultiSimple(int N)
 	cudaMemcpy(d_B, h_B, N*N * sizeof(float), cudaMemcpyHostToDevice);
 	cudaMemcpy(d_C, h_C, N*N * sizeof(float), cudaMemcpyHostToDevice);
 
-	cudaEventRecord(start, 0);
 	matrixMultiplicationKernel << <blocksPerGrid, threadsPerBlock >> > (d_A, d_B, d_C, N);
+
+
+	cudaMemcpy(h_C, d_C, N*N * sizeof(float), cudaMemcpyDeviceToHost);
 	cudaEventRecord(stop, 0);
 
 	cudaEventSynchronize(stop);
 	cudaEventElapsedTime(&elapsedTime, start, stop);
-
-	cudaMemcpy(h_C, d_C, N*N * sizeof(float), cudaMemcpyDeviceToHost);
-	/*for (int i = 0; i < N; i++)
+	printf("Res:\n");
+	for (int i = 0; i < N; i++)
 	{
 		for (int j = 0; j < N; j++)
 		{
-			printf("%f ", h_C[IDX2C(i, j, N)]);
+			printf("%0.0f ", h_C[IDX2C(i, j, N)]);
 		}
 		printf("\n");
-	}*/
+	}
+	printf("-----------------------------\n");
 	printf("Simple; Time spent executing by the GPU: %.2f millseconds\n", elapsedTime);
+	printf("-----------------------------\n");
+	free(h_B);
+	free(h_A);
+	free(h_C);
+	cudaEventDestroy(start);
+	cudaEventDestroy(stop);
+}
+
+void MultiSimpleOptimized(int N)
+{
+	cudaEvent_t start, stop;
+	float elapsedTime;
+	// создаем событи€
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+
+	int blocks_num = N / threads_num;
+	dim3 threadsPerBlock = dim3(threads_num, threads_num);
+	dim3 blocksPerGrid = dim3(N / blocks_num, N / blocks_num);
+
+	float *h_A = (float *)malloc(N*N * sizeof(float));
+	float *h_B = (float *)malloc(N*N * sizeof(float));
+	float *h_C = (float *)malloc(N*N * sizeof(float));
+
+	for (int i = 0; i < N; i++)
+	{
+		for (int j = 0; j < N; j++)
+		{
+			h_A[IDX2C(i, j, N)] = i + j;
+			h_B[IDX2C(i, j, N)] = i + j;
+		}
+	}
+	printf("A gen:\n");
+	for (int i = 0; i < N; i++)
+	{
+		for (int j = 0; j < N; j++)
+			printf("%0.0f ", h_A[IDX2C(i, j, N)]);
+		printf("\n");
+	}
+	printf("B gen:\n");
+	for (int i = 0; i < N; i++)
+	{
+		for (int j = 0; j < N; j++)
+			printf("%0.0f ", h_B[IDX2C(i, j, N)]);
+		printf("\n");
+	}
+	cudaEventRecord(start, 0);
+	float *d_A = NULL;
+	cudaMalloc((void **)&d_A, N*N * sizeof(float));
+	float * d_B = NULL;
+	cudaMalloc((void **)&d_B, N*N * sizeof(float));
+	float * d_C = NULL;
+	cudaMalloc((void **)&d_C, N*N * sizeof(float));
+
+	cudaMemcpy(d_A, h_A, N*N * sizeof(float), cudaMemcpyHostToDevice);
+	cudaMemcpy(d_B, h_B, N*N * sizeof(float), cudaMemcpyHostToDevice);
+	cudaMemcpy(d_C, h_C, N*N * sizeof(float), cudaMemcpyHostToDevice);
+
+	matrixMult << <blocksPerGrid, threadsPerBlock >> > (d_A, d_B, d_C, N, N);
+
+
+	cudaMemcpy(h_C, d_C, N*N * sizeof(float), cudaMemcpyDeviceToHost);
+	cudaEventRecord(stop, 0);
+
+	cudaEventSynchronize(stop);
+	cudaEventElapsedTime(&elapsedTime, start, stop);
+	printf("Res:\n");
+	for (int i = 0; i < N; i++)
+	{
+		for (int j = 0; j < N; j++)
+		{
+			printf("%0.0f ", h_C[IDX2C(i, j, N)]);
+		}
+		printf("\n");
+	}
+	printf("-----------------------------\n");
+	printf("Simple optimized; Time spent executing by the GPU: %.2f millseconds\n", elapsedTime);
 	printf("-----------------------------\n");
 	free(h_B);
 	free(h_A);
@@ -527,12 +655,13 @@ void MultiSimple(int N)
 
 void ThirdHome()
 {
-	for (int i = 10; i <= 100; i += 10)
+	for (int i = 10; i <= 1000; i += 100)
 	{
 		printf("N = %d\n", i);
 		MultiCublas(i);
 		MultiCublasXt(i);
 		MultiSimple(i);
+		MultiSimpleOptimized(i);
 	}
 }
 
@@ -580,7 +709,7 @@ void FirstLab()
 	float beta = 1.0f;
 	// –азмер матрицы
 	int n2 = N * N;
-	
+
 	// ¬ыдел€ем пам€ть дл€ матриц в системной пам€ти
 	h_A = (float *)malloc(n2 * sizeof(h_A[0]));
 	h_B = (float *)malloc(n2 * sizeof(h_B[0]));
@@ -589,15 +718,17 @@ void FirstLab()
 	h_C = (float *)malloc(n2 * sizeof(h_C[0]));
 	// «аполн€ем матрицы тестовыми данными
 	srand((unsigned int)time(NULL));
+	int k = 1;
 	for (int i = 0; i < n2; i++)
 	{
-		h_A[i] = rand() / (float)RAND_MAX;
-		h_B[i] = rand() / (float)RAND_MAX;
+		h_A[i] = k;
+		h_B[i] = k + 1;
 		h_ABSum[i] = h_B[i];
+		k++;
 	}
 	for (int i = 0; i < N; i++)
 		for (int j = 0; j < N; j++)
-			h_I[i*N+j] = i == j ? 1 : 0;
+			h_I[i*N + j] = i == j ? 1 : 0;
 
 #pragma region Print
 	printf("initialized A:\n");
@@ -640,7 +771,7 @@ void FirstLab()
 			printf("ABSum[%d][%d] = %f  ", i, j, h_ABSum[i*N + j]);
 		printf("\n");
 	}
-	beta = 0.0f;
+	beta = 0;
 	// ¬ыполн€ем операцию перемножени€ матриц
 	printf("1*A*B + 0*C :\n");
 	status = cublasXtSgemm(handle, CUBLAS_OP_N,
@@ -673,7 +804,7 @@ void FirstLab()
 			printf("C[%d][%d] = %f  ", i, j, h_C[i*N + j]);
 		printf("\n");
 	}
-	
+
 	free(h_A);
 	free(h_B);
 	free(h_C);
@@ -842,10 +973,10 @@ void SecondHome()
 
 
 int main()
-{	
+{
 	//FirstLab();
 	//SecondHome();
-	
+
 	//CublasExample();
 	ThirdHome();
 	getchar();
